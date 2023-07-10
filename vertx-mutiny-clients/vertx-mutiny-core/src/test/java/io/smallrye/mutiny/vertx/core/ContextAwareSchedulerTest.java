@@ -76,7 +76,7 @@ public class ContextAwareSchedulerTest {
     public void executor_immediate_getOrCreateContext_no_context() throws InterruptedException {
         ScheduledExecutorService scheduler = ContextAwareScheduler
                 .delegatingTo(delegate)
-                .withImmediateGetOrCreateContext(vertx);
+                .withGetOrCreateContextOnThisThread(vertx);
 
         CountDownLatch latch = new CountDownLatch(1);
         AtomicBoolean ok = new AtomicBoolean();
@@ -98,7 +98,7 @@ public class ContextAwareSchedulerTest {
         vertx.runOnContext(() -> {
             ScheduledExecutorService scheduler = ContextAwareScheduler
                     .delegatingTo(delegate)
-                    .withImmediateGetOrCreateContext(vertx);
+                    .withGetOrCreateContextOnThisThread(vertx);
             expectedContext.set(Vertx.currentContext());
 
             scheduler.execute(() -> {
@@ -121,7 +121,7 @@ public class ContextAwareSchedulerTest {
         vertx.runOnContext(() -> {
             ScheduledExecutorService scheduler = ContextAwareScheduler
                     .delegatingTo(delegate)
-                    .withRequiredCurrentContext();
+                    .withCurrentContext();
             expectedContext.set(Vertx.currentContext());
 
             scheduler.execute(() -> {
@@ -139,7 +139,7 @@ public class ContextAwareSchedulerTest {
     public void executor_requiredCurrentContext_fail() throws InterruptedException {
         assertThatThrownBy(() -> ContextAwareScheduler
                 .delegatingTo(delegate)
-                .withRequiredCurrentContext())
+                .withCurrentContext())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("There is no Vert.x context in the current thread:");
     }
@@ -175,7 +175,7 @@ public class ContextAwareSchedulerTest {
 
         Context context = vertx.getOrCreateContext();
         ScheduledExecutorService scheduler = ContextAwareScheduler.delegatingTo(delegate)
-                .withFixedContext(context);
+                .withContext(context);
 
         scheduler.schedule(() -> {
             Context ctx = Vertx.currentContext();
@@ -194,7 +194,7 @@ public class ContextAwareSchedulerTest {
 
         Context context = vertx.getOrCreateContext();
         ScheduledExecutorService scheduler = ContextAwareScheduler.delegatingTo(delegate)
-                .withFixedContext(context);
+                .withContext(context);
 
         ScheduledFuture<?> future = scheduler.scheduleAtFixedRate(() -> {
             Context ctx = Vertx.currentContext();
@@ -214,7 +214,7 @@ public class ContextAwareSchedulerTest {
 
         Context context = vertx.getOrCreateContext();
         ScheduledExecutorService scheduler = ContextAwareScheduler.delegatingTo(delegate)
-                .withFixedContext(context);
+                .withContext(context);
 
         ScheduledFuture<?> future = scheduler.scheduleWithFixedDelay(() -> {
             Context ctx = Vertx.currentContext();

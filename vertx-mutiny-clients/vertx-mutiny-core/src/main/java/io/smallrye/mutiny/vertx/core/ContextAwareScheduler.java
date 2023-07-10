@@ -24,7 +24,7 @@ public interface ContextAwareScheduler {
             this.delegate = delegate;
         }
 
-        public ScheduledExecutorService withFixedContext(Context context) {
+        public ScheduledExecutorService withContext(Context context) {
             return new InternalExecutor(delegate, () -> context);
         }
 
@@ -32,12 +32,12 @@ public interface ContextAwareScheduler {
             return new InternalExecutor(delegate, vertx::getOrCreateContext);
         }
 
-        public ScheduledExecutorService withImmediateGetOrCreateContext(Vertx vertx) {
-            return withFixedContext(vertx.getOrCreateContext());
+        public ScheduledExecutorService withGetOrCreateContextOnThisThread(Vertx vertx) {
+            return withContext(vertx.getOrCreateContext());
         }
 
-        public ScheduledExecutorService withRequiredCurrentContext() {
-            return withFixedContext(captureCurrentContextOrFail());
+        public ScheduledExecutorService withCurrentContext() {
+            return withContext(captureCurrentContextOrFail());
         }
 
         private static Context captureCurrentContextOrFail() {
