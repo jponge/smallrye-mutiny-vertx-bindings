@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.concurrent.*;
 import java.util.function.Supplier;
 
+import io.smallrye.common.annotation.CheckReturnValue;
 import io.vertx.mutiny.core.Context;
 import io.vertx.mutiny.core.Vertx;
 
@@ -12,6 +13,7 @@ public interface ContextAwareScheduler {
 
     // ---- "DSL" ---- //
 
+    @CheckReturnValue
     static ContextCaptureStrategy delegatingTo(ScheduledExecutorService delegate) {
         return new ContextCaptureStrategy(delegate);
     }
@@ -111,7 +113,7 @@ public interface ContextAwareScheduler {
         }
 
         @Override
-        public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
+        public boolean awaitTermination(long timeout, TimeUnit unit) {
             throw new UnsupportedOperationException();
         }
 
@@ -131,24 +133,22 @@ public interface ContextAwareScheduler {
         }
 
         @Override
-        public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks) throws InterruptedException {
+        public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit)
-                throws InterruptedException {
+        public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public <T> T invokeAny(Collection<? extends Callable<T>> tasks) throws InterruptedException, ExecutionException {
+        public <T> T invokeAny(Collection<? extends Callable<T>> tasks) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public <T> T invokeAny(Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit)
-                throws InterruptedException, ExecutionException, TimeoutException {
+        public <T> T invokeAny(Collection<? extends Callable<T>> tasks, long timeout, TimeUnit unit) {
             throw new UnsupportedOperationException();
         }
 

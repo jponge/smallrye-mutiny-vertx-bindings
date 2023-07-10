@@ -166,6 +166,12 @@ public class ContextAwareSchedulerTest {
 
         assertThatThrownBy(() -> scheduler.schedule(() -> 123, 100, TimeUnit.MILLISECONDS))
                 .isInstanceOf(UnsupportedOperationException.class);
+
+        assertThatThrownBy(() -> scheduler.awaitTermination(100, TimeUnit.MILLISECONDS))
+                .isInstanceOf(UnsupportedOperationException.class);
+
+        assertThat(scheduler.isShutdown()).isFalse();
+        assertThat(scheduler.isTerminated()).isFalse();
     }
 
     @Test
