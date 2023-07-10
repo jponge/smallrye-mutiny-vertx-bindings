@@ -37,10 +37,6 @@ public interface ContextAwareScheduler {
         }
 
         public ScheduledExecutorService withRequiredCurrentContext() {
-            return new InternalExecutor(delegate, ContextCaptureStrategy::captureCurrentContextOrFail);
-        }
-
-        public ScheduledExecutorService withImmediateRequiredCurrentContext() {
             return withFixedContext(captureCurrentContextOrFail());
         }
 
