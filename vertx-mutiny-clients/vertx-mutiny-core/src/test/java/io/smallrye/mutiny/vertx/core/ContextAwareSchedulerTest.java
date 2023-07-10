@@ -1,20 +1,19 @@
 package io.smallrye.mutiny.vertx.core;
 
-import io.vertx.mutiny.core.Context;
-import io.vertx.mutiny.core.Vertx;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.util.List;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import io.vertx.mutiny.core.Context;
+import io.vertx.mutiny.core.Vertx;
 
 public class ContextAwareSchedulerTest {
 
@@ -143,5 +142,88 @@ public class ContextAwareSchedulerTest {
                 .withRequiredCurrentContext())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("There is no Vert.x context in the current thread:");
+    }
+
+    @Test
+    public void rejectManyExecutorMethods() {
+        ScheduledExecutorService scheduler = ContextAwareScheduler.delegatingTo(delegate)
+                .withGetOrCreateContext(vertx);
+
+        assertThatThrownBy(() -> scheduler.submit(() -> 123))
+                .isInstanceOf(UnsupportedOperationException.class);
+
+        assertThatThrownBy(() -> scheduler.invokeAll(List.of(() -> 123)))
+                .isInstanceOf(UnsupportedOperationException.class);
+
+        assertThatThrownBy(() -> scheduler.invokeAny(List.of(() -> 123)))
+                .isInstanceOf(UnsupportedOperationException.class);
+
+        assertThatThrownBy(scheduler::shutdownNow)
+                .isInstanceOf(UnsupportedOperationException.class);
+
+        assertThatThrownBy(scheduler::shutdown)
+                .isInstanceOf(UnsupportedOperationException.class);
+
+        assertThatThrownBy(() -> scheduler.schedule(() -> 123, 100, TimeUnit.MILLISECONDS))
+                .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    public void schedule() throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicBoolean ok = new AtomicBoolean();
+
+        Context context = vertx.getOrCreateContext();
+        ScheduledExecutorService scheduler = ContextAwareScheduler.delegatingTo(delegate)
+                .withFixedContext(context);
+
+        scheduler.schedule(() -> {
+            Context ctx = Vertx.currentContext();
+            ok.set(ctx != null && ctx.getDelegate() == context.getDelegate());
+            latch.countDown();
+        }, 100, TimeUnit.MILLISECONDS);
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+        assertThat(ok).isTrue();
+    }
+
+    @Test
+    public void scheduleAtFixedRate() throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicBoolean ok = new AtomicBoolean();
+
+        Context context = vertx.getOrCreateContext();
+        ScheduledExecutorService scheduler = ContextAwareScheduler.delegatingTo(delegate)
+                .withFixedContext(context);
+
+        ScheduledFuture<?> future = scheduler.scheduleAtFixedRate(() -> {
+            Context ctx = Vertx.currentContext();
+            ok.set(ctx != null && ctx.getDelegate() == context.getDelegate());
+            latch.countDown();
+        }, 10, 1000, TimeUnit.MILLISECONDS);
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+        future.cancel(true);
+        assertThat(ok).isTrue();
+    }
+
+    @Test
+    public void scheduleWithFixedDelay() throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicBoolean ok = new AtomicBoolean();
+
+        Context context = vertx.getOrCreateContext();
+        ScheduledExecutorService scheduler = ContextAwareScheduler.delegatingTo(delegate)
+                .withFixedContext(context);
+
+        ScheduledFuture<?> future = scheduler.scheduleWithFixedDelay(() -> {
+            Context ctx = Vertx.currentContext();
+            ok.set(ctx != null && ctx.getDelegate() == context.getDelegate());
+            latch.countDown();
+        }, 10, 1000, TimeUnit.MILLISECONDS);
+
+        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+        future.cancel(true);
+        assertThat(ok).isTrue();
     }
 }
