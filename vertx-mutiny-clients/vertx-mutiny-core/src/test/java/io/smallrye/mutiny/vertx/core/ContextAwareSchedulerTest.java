@@ -1,7 +1,11 @@
 package io.smallrye.mutiny.vertx.core;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import io.smallrye.mutiny.Uni;
+import io.vertx.mutiny.core.Context;
+import io.vertx.mutiny.core.Vertx;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 import java.time.Duration;
 import java.util.List;
@@ -9,13 +13,8 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import io.smallrye.mutiny.Uni;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-
-import io.vertx.mutiny.core.Context;
-import io.vertx.mutiny.core.Vertx;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class ContextAwareSchedulerTest {
 
@@ -237,25 +236,19 @@ public class ContextAwareSchedulerTest {
 
     @Test
     public void usage_delay() throws InterruptedException {
-        CountDownLatch latch = new CountDownLatch(1);
-        AtomicBoolean ok = new AtomicBoolean();
-
         ScheduledExecutorService scheduler = ContextAwareScheduler.delegatingTo(delegate)
                 .withGetOrCreateContext(vertx);
 
         Context context = vertx.getOrCreateContext();
         context.put("foo", 58);
 
-        vertx.runOnContext(() -> {
-            Integer res = Uni.createFrom().item(123)
-                    .onItem().delayIt().onExecutor(scheduler).by(Duration.ofMillis(10))
-                    .onItem().ignore().andContinueWith(() -> context.get("foo"))
-                    .await().indefinitely();
-            ok.set(res != null && res == 58);
-            latch.countDown();
-        });
+        Integer res = Uni.createFrom().item(123)
+                .onItem().delayIt().onExecutor(scheduler).by(Duration.ofMillis(10))
+                .onItem().ignore().andContinueWith(() -> context.get("foo"))
+                .await().atMost(Duration.ofSeconds(5));
 
-        assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
-        assertThat(ok).isTrue();
+        assertThat(res)
+                .isNotNull()
+                .isEqualTo(58);
     }
 }
