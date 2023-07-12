@@ -1,20 +1,21 @@
 package io.smallrye.mutiny.vertx.core;
 
-import io.smallrye.mutiny.Uni;
-import io.vertx.mutiny.core.Context;
-import io.vertx.mutiny.core.Vertx;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+
+import io.smallrye.mutiny.Uni;
+import io.vertx.core.impl.ContextInternal;
+import io.vertx.mutiny.core.Context;
+import io.vertx.mutiny.core.Vertx;
 
 public class ContextAwareSchedulerTest {
 
@@ -33,6 +34,10 @@ public class ContextAwareSchedulerTest {
         vertx.closeAndAwait();
     }
 
+    private boolean isDuplicate(Context ctx) {
+        return ((ContextInternal) ctx.getDelegate()).isDuplicate();
+    }
+
     @Test
     public void executor_getOrCreateContext_no_context() throws InterruptedException {
         ScheduledExecutorService scheduler = ContextAwareScheduler
@@ -42,7 +47,7 @@ public class ContextAwareSchedulerTest {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicBoolean ok = new AtomicBoolean();
         scheduler.execute(() -> {
-            ok.set(Vertx.currentContext() != null);
+            ok.set(Vertx.currentContext() != null && isDuplicate(Vertx.currentContext()));
             latch.countDown();
         });
 
@@ -54,17 +59,15 @@ public class ContextAwareSchedulerTest {
     public void executor_getOrCreateContext_existing_context() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicBoolean ok = new AtomicBoolean();
-        AtomicReference<Context> expectedContext = new AtomicReference<>();
 
         vertx.runOnContext(() -> {
             ScheduledExecutorService scheduler = ContextAwareScheduler
                     .delegatingTo(delegate)
                     .withGetOrCreateContext(vertx);
-            expectedContext.set(Vertx.currentContext());
 
             scheduler.execute(() -> {
                 Context ctx = Vertx.currentContext();
-                ok.set(ctx != null && ctx.getDelegate() != expectedContext.get().getDelegate());
+                ok.set(ctx != null && isDuplicate(ctx));
                 latch.countDown();
             });
         });
@@ -82,7 +85,7 @@ public class ContextAwareSchedulerTest {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicBoolean ok = new AtomicBoolean();
         scheduler.execute(() -> {
-            ok.set(Vertx.currentContext() != null);
+            ok.set(Vertx.currentContext() != null && isDuplicate(Vertx.currentContext()));
             latch.countDown();
         });
 
@@ -94,17 +97,16 @@ public class ContextAwareSchedulerTest {
     public void executor_immediate_getOrCreateContext_existing_context() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicBoolean ok = new AtomicBoolean();
-        AtomicReference<Context> expectedContext = new AtomicReference<>();
 
         vertx.runOnContext(() -> {
             ScheduledExecutorService scheduler = ContextAwareScheduler
                     .delegatingTo(delegate)
                     .withGetOrCreateContextOnThisThread(vertx);
-            expectedContext.set(Vertx.currentContext());
+            Vertx.currentContext().put("foo", "bar");
 
             scheduler.execute(() -> {
                 Context ctx = Vertx.currentContext();
-                ok.set(ctx != null && ctx.getDelegate() == expectedContext.get().getDelegate());
+                ok.set(ctx != null && "bar".equals(ctx.get("foo")) && isDuplicate(ctx));
                 latch.countDown();
             });
         });
@@ -117,17 +119,15 @@ public class ContextAwareSchedulerTest {
     public void executor_requiredCurrentContext_ok() throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicBoolean ok = new AtomicBoolean();
-        AtomicReference<Context> expectedContext = new AtomicReference<>();
 
         vertx.runOnContext(() -> {
             ScheduledExecutorService scheduler = ContextAwareScheduler
                     .delegatingTo(delegate)
                     .withCurrentContext();
-            expectedContext.set(Vertx.currentContext());
 
             scheduler.execute(() -> {
                 Context ctx = Vertx.currentContext();
-                ok.set(ctx != null && ctx.getDelegate() == expectedContext.get().getDelegate());
+                ok.set(ctx != null && isDuplicate(ctx));
                 latch.countDown();
             });
         });
@@ -181,12 +181,13 @@ public class ContextAwareSchedulerTest {
         AtomicBoolean ok = new AtomicBoolean();
 
         Context context = vertx.getOrCreateContext();
+        context.put("foo", "bar");
         ScheduledExecutorService scheduler = ContextAwareScheduler.delegatingTo(delegate)
                 .withContext(context);
 
         scheduler.schedule(() -> {
             Context ctx = Vertx.currentContext();
-            ok.set(ctx != null && ctx.getDelegate() == context.getDelegate());
+            ok.set(ctx != null && "bar".equals(ctx.get("foo")));
             latch.countDown();
         }, 100, TimeUnit.MILLISECONDS);
 
@@ -200,12 +201,13 @@ public class ContextAwareSchedulerTest {
         AtomicBoolean ok = new AtomicBoolean();
 
         Context context = vertx.getOrCreateContext();
+        context.put("foo", "bar");
         ScheduledExecutorService scheduler = ContextAwareScheduler.delegatingTo(delegate)
                 .withContext(context);
 
         ScheduledFuture<?> future = scheduler.scheduleAtFixedRate(() -> {
             Context ctx = Vertx.currentContext();
-            ok.set(ctx != null && ctx.getDelegate() == context.getDelegate());
+            ok.set(ctx != null && isDuplicate(ctx) && "bar".equals(ctx.get("foo")));
             latch.countDown();
         }, 10, 1000, TimeUnit.MILLISECONDS);
 
@@ -220,12 +222,13 @@ public class ContextAwareSchedulerTest {
         AtomicBoolean ok = new AtomicBoolean();
 
         Context context = vertx.getOrCreateContext();
+        context.put("foo", "bar");
         ScheduledExecutorService scheduler = ContextAwareScheduler.delegatingTo(delegate)
                 .withContext(context);
 
         ScheduledFuture<?> future = scheduler.scheduleWithFixedDelay(() -> {
             Context ctx = Vertx.currentContext();
-            ok.set(ctx != null && ctx.getDelegate() == context.getDelegate());
+            ok.set(ctx != null && isDuplicate(ctx) && "bar".equals(ctx.get("foo")));
             latch.countDown();
         }, 10, 1000, TimeUnit.MILLISECONDS);
 

@@ -6,6 +6,7 @@ import java.util.concurrent.*;
 import java.util.function.Supplier;
 
 import io.smallrye.common.annotation.CheckReturnValue;
+import io.vertx.core.impl.ContextInternal;
 import io.vertx.mutiny.core.Context;
 import io.vertx.mutiny.core.Vertx;
 
@@ -65,7 +66,14 @@ public interface ContextAwareScheduler {
         }
 
         private Runnable decorate(Runnable task) {
-            return () -> contextSupplier.get().runOnContext(task);
+            return () -> {
+                Context context = contextSupplier.get();
+                ContextInternal contextInternal = (ContextInternal) context.getDelegate();
+                if (!contextInternal.isDuplicate()) {
+                    context = Context.newInstance(contextInternal.duplicate());
+                }
+                context.runOnContext(task);
+            };
         }
 
         // ---- ScheduledExecutorService ---- //
