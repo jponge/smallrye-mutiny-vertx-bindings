@@ -35,7 +35,7 @@ public interface ContextAwareScheduler {
             return new InternalExecutor(delegate, vertx::getOrCreateContext);
         }
 
-        public ScheduledExecutorService withGetOrCreateContextOnThisThread(Vertx vertx) {
+        public ScheduledExecutorService withGetOrCreateContextOnCurrentThread(Vertx vertx) {
             return withContext(vertx.getOrCreateContext());
         }
 

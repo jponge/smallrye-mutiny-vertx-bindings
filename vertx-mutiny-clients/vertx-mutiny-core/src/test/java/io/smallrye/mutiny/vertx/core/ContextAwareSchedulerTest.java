@@ -35,7 +35,7 @@ public class ContextAwareSchedulerTest {
     }
 
     private boolean isDuplicate(Context ctx) {
-        return ((ContextInternal) ctx.getDelegate()).isDuplicate();
+        return (ctx != null) && ((ContextInternal) ctx.getDelegate()).isDuplicate();
     }
 
     @Test
@@ -47,7 +47,7 @@ public class ContextAwareSchedulerTest {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicBoolean ok = new AtomicBoolean();
         scheduler.execute(() -> {
-            ok.set(Vertx.currentContext() != null && isDuplicate(Vertx.currentContext()));
+            ok.set(isDuplicate(Vertx.currentContext()));
             latch.countDown();
         });
 
@@ -67,7 +67,7 @@ public class ContextAwareSchedulerTest {
 
             scheduler.execute(() -> {
                 Context ctx = Vertx.currentContext();
-                ok.set(ctx != null && isDuplicate(ctx));
+                ok.set(isDuplicate(ctx));
                 latch.countDown();
             });
         });
@@ -80,12 +80,12 @@ public class ContextAwareSchedulerTest {
     public void executor_immediate_getOrCreateContext_no_context() throws InterruptedException {
         ScheduledExecutorService scheduler = ContextAwareScheduler
                 .delegatingTo(delegate)
-                .withGetOrCreateContextOnThisThread(vertx);
+                .withGetOrCreateContextOnCurrentThread(vertx);
 
         CountDownLatch latch = new CountDownLatch(1);
         AtomicBoolean ok = new AtomicBoolean();
         scheduler.execute(() -> {
-            ok.set(Vertx.currentContext() != null && isDuplicate(Vertx.currentContext()));
+            ok.set(isDuplicate(Vertx.currentContext()));
             latch.countDown();
         });
 
@@ -101,12 +101,12 @@ public class ContextAwareSchedulerTest {
         vertx.runOnContext(() -> {
             ScheduledExecutorService scheduler = ContextAwareScheduler
                     .delegatingTo(delegate)
-                    .withGetOrCreateContextOnThisThread(vertx);
+                    .withGetOrCreateContextOnCurrentThread(vertx);
             Vertx.currentContext().put("foo", "bar");
 
             scheduler.execute(() -> {
                 Context ctx = Vertx.currentContext();
-                ok.set(ctx != null && "bar".equals(ctx.get("foo")) && isDuplicate(ctx));
+                ok.set(isDuplicate(ctx) && "bar".equals(ctx.get("foo")));
                 latch.countDown();
             });
         });
@@ -127,7 +127,7 @@ public class ContextAwareSchedulerTest {
 
             scheduler.execute(() -> {
                 Context ctx = Vertx.currentContext();
-                ok.set(ctx != null && isDuplicate(ctx));
+                ok.set(isDuplicate(ctx));
                 latch.countDown();
             });
         });
@@ -187,7 +187,7 @@ public class ContextAwareSchedulerTest {
 
         scheduler.schedule(() -> {
             Context ctx = Vertx.currentContext();
-            ok.set(ctx != null && "bar".equals(ctx.get("foo")));
+            ok.set(isDuplicate(ctx) && "bar".equals(ctx.get("foo")));
             latch.countDown();
         }, 100, TimeUnit.MILLISECONDS);
 
@@ -207,7 +207,7 @@ public class ContextAwareSchedulerTest {
 
         ScheduledFuture<?> future = scheduler.scheduleAtFixedRate(() -> {
             Context ctx = Vertx.currentContext();
-            ok.set(ctx != null && isDuplicate(ctx) && "bar".equals(ctx.get("foo")));
+            ok.set(isDuplicate(ctx) && "bar".equals(ctx.get("foo")));
             latch.countDown();
         }, 10, 1000, TimeUnit.MILLISECONDS);
 
@@ -228,7 +228,7 @@ public class ContextAwareSchedulerTest {
 
         ScheduledFuture<?> future = scheduler.scheduleWithFixedDelay(() -> {
             Context ctx = Vertx.currentContext();
-            ok.set(ctx != null && isDuplicate(ctx) && "bar".equals(ctx.get("foo")));
+            ok.set(isDuplicate(ctx) && "bar".equals(ctx.get("foo")));
             latch.countDown();
         }, 10, 1000, TimeUnit.MILLISECONDS);
 
@@ -242,16 +242,53 @@ public class ContextAwareSchedulerTest {
         ScheduledExecutorService scheduler = ContextAwareScheduler.delegatingTo(delegate)
                 .withGetOrCreateContext(vertx);
 
-        Context context = vertx.getOrCreateContext();
-        context.put("foo", 58);
-
         Integer res = Uni.createFrom().item(123)
                 .onItem().delayIt().onExecutor(scheduler).by(Duration.ofMillis(10))
-                .onItem().ignore().andContinueWith(() -> context.get("foo"))
+                .onItem().transformToUni(n -> {
+                    Context ctx = Vertx.currentContext();
+                    if (isDuplicate(ctx)) {
+                        ctx.put("foo", 58);
+                        return Uni.createFrom().item(n);
+                    } else {
+                        return Uni.createFrom().failure(new IllegalStateException("No context"));
+                    }
+                })
+                .onItem().ignore().andContinueWith(() -> Vertx.currentContext().get("foo"))
                 .await().atMost(Duration.ofSeconds(5));
 
         assertThat(res)
                 .isNotNull()
                 .isEqualTo(58);
+    }
+
+    @Test
+    public void usage_verticle() {
+        class MyVerticle extends AbstractVerticle {
+
+            @Override
+            public Uni<Void> asyncStart() {
+                vertx.getOrCreateContext().put("foo", "bar");
+
+                ScheduledExecutorService scheduler = ContextAwareScheduler.delegatingTo(delegate)
+                        .withCurrentContext();
+
+                return Uni.createFrom().voidItem()
+                        .onItem().delayIt().onExecutor(scheduler).by(Duration.ofMillis(10))
+                        .onItem().transformToUni(v -> {
+                            Context ctx = vertx.getOrCreateContext();
+                            if (isDuplicate(ctx)) {
+                                if ("bar".equals(ctx.get("foo"))) {
+                                    return Uni.createFrom().voidItem();
+                                } else {
+                                    return Uni.createFrom().failure(new IllegalStateException("No data in context"));
+                                }
+                            } else {
+                                return Uni.createFrom().failure(new IllegalStateException("No context"));
+                            }
+                        });
+            }
+        }
+
+        vertx.deployVerticle(new MyVerticle()).await().atMost(Duration.ofSeconds(5));
     }
 }
