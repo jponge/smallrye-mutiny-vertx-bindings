@@ -137,12 +137,12 @@ public interface ContextAwareScheduler {
 
         @Override
         public <T> Future<T> submit(Runnable task, T result) {
-            throw new UnsupportedOperationException();
+            return delegate.submit(decorate(task), result);
         }
 
         @Override
         public Future<?> submit(Runnable task) {
-            throw new UnsupportedOperationException();
+            return delegate.submit(decorate(task));
         }
 
         @Override
