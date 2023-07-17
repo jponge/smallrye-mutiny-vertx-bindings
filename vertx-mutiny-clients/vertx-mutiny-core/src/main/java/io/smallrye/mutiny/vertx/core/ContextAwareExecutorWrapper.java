@@ -1,12 +1,12 @@
 package io.smallrye.mutiny.vertx.core;
 
-import io.vertx.core.impl.ContextInternal;
-import io.vertx.mutiny.core.Context;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.function.Supplier;
+
+import io.vertx.core.impl.ContextInternal;
+import io.vertx.mutiny.core.Context;
 
 class ContextAwareExecutorWrapper implements ScheduledExecutorService {
 
