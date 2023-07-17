@@ -45,6 +45,11 @@ public class ContextAwareSchedulerTest {
                 .hasMessage("The delegate executor cannot be null");
 
         assertThatThrownBy(() -> ContextAwareScheduler.delegatingTo(delegate)
+                .withContext(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("The context cannot be null");
+
+        assertThatThrownBy(() -> ContextAwareScheduler.delegatingTo(delegate)
                 .withGetOrCreateContext(null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("The Vertx object cannot be null");
