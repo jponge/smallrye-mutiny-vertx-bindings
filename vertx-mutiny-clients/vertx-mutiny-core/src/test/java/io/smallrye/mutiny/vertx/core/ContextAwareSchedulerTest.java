@@ -39,6 +39,23 @@ public class ContextAwareSchedulerTest {
     }
 
     @Test
+    public void rejectNullParameters() {
+        assertThatThrownBy(() -> ContextAwareScheduler.delegatingTo(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("The delegate executor cannot be null");
+
+        assertThatThrownBy(() -> ContextAwareScheduler.delegatingTo(delegate)
+                .withGetOrCreateContext(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("The Vertx object cannot be null");
+
+        assertThatThrownBy(() -> ContextAwareScheduler.delegatingTo(delegate)
+                .withGetOrCreateContextOnCurrentThread(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("The Vertx object cannot be null");
+    }
+
+    @Test
     public void executor_getOrCreateContext_no_context() throws InterruptedException {
         ScheduledExecutorService scheduler = ContextAwareScheduler
                 .delegatingTo(delegate)

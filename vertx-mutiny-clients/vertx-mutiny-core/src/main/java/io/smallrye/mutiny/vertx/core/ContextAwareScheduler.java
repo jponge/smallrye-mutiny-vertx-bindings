@@ -1,5 +1,7 @@
 package io.smallrye.mutiny.vertx.core;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.*;
@@ -16,6 +18,7 @@ public interface ContextAwareScheduler {
 
     @CheckReturnValue
     static ContextCaptureStrategy delegatingTo(ScheduledExecutorService delegate) {
+        requireNonNull(delegate, "The delegate executor cannot be null");
         return new ContextCaptureStrategy(delegate);
     }
 
@@ -32,10 +35,12 @@ public interface ContextAwareScheduler {
         }
 
         public ScheduledExecutorService withGetOrCreateContext(Vertx vertx) {
+            requireNonNull(vertx, "The Vertx object cannot be null");
             return new InternalExecutor(delegate, vertx::getOrCreateContext);
         }
 
         public ScheduledExecutorService withGetOrCreateContextOnCurrentThread(Vertx vertx) {
+            requireNonNull(vertx, "The Vertx object cannot be null");
             return withContext(vertx.getOrCreateContext());
         }
 
