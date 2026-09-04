@@ -131,6 +131,20 @@ public class VertxGenMethod {
         return method;
     }
 
+    /**
+     * Returns a method signature string suitable for javadoc {@code @see} tags.
+     * Works even when the AST {@link MethodDeclaration} is unavailable (cross-module methods).
+     */
+    public String getSignature() {
+        if (method != null) {
+            return method.getSignature().asString();
+        }
+        String params = parameters.stream()
+                .map(p -> p.type().describe())
+                .collect(java.util.stream.Collectors.joining(", "));
+        return methodName + "(" + params + ")";
+    }
+
     public boolean isFluent() {
         return isFluent;
     }

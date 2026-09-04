@@ -12,8 +12,8 @@ import org.slf4j.LoggerFactory;
 
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.type.Type;
-import com.github.javaparser.ast.type.TypeParameter;
 import com.github.javaparser.javadoc.Javadoc;
+import com.github.javaparser.resolution.declarations.ResolvedTypeParameterDeclaration;
 import com.github.javaparser.resolution.model.typesystem.ReferenceTypeImpl;
 import com.github.javaparser.resolution.types.ResolvedType;
 import com.palantir.javapoet.*;
@@ -102,7 +102,7 @@ public class UniMethodShimModule implements ShimModule {
                 """.formatted(Uni.class.getName()));
         jd = JavadocHelper.replace(jd, " future ", " uni ");
 
-        String signature = method.getMethod().getSignature().asString();
+        String signature = method.getSignature();
         return JavadocHelper
                 .addOrReplaceReturnTag(jd,
                         "A {@link %s Uni} representing the asynchronous result of this operation."
@@ -119,7 +119,7 @@ public class UniMethodShimModule implements ShimModule {
                 """.formatted(shimElementType.asString()));
         jd = JavadocHelper.replace(jd, " future ", " underlying uni ");
 
-        String signature = method.getMethod().getSignature().asString();
+        String signature = method.getSignature();
         return JavadocHelper
                 .addOrReplaceReturnTag(jd, "The current instance to chain operations if needed.")
                 .addBlockTag("see", "%s#%s"
@@ -138,7 +138,7 @@ public class UniMethodShimModule implements ShimModule {
                         .formatted(shimElementType.asString()));
         jd = JavadocHelper.replace(jd, " future ", " underlying uni ");
 
-        String signature = method.getMethod().getSignature().asString();
+        String signature = method.getSignature();
 
         if (shimElementType.isVoidType() || shimElementType.asString().equals(Void.class.getName())) {
             return JavadocHelper
@@ -556,8 +556,8 @@ public class UniMethodShimModule implements ShimModule {
         for (var exception : method.getThrows()) {
             awaitMethod.addException(Shim.getTypeNameFromType(exception));
         }
-        for (TypeParameter tp : method.getOriginalMethod().getMethod().getTypeParameters()) {
-            awaitMethod.addTypeVariable(TypeVariableName.get(tp.getName().asString()));
+        for (ResolvedTypeParameterDeclaration tp : method.getOriginalMethod().getTypeParameters()) {
+            awaitMethod.addTypeVariable(TypeVariableName.get(tp.getName()));
         }
         CodeBlock.Builder awaitCode = CodeBlock.builder();
         method.addGeneratedBy(awaitCode);
@@ -598,8 +598,8 @@ public class UniMethodShimModule implements ShimModule {
         for (var exception : method.getThrows()) {
             forgetMethod.addException(Shim.getTypeNameFromType(exception));
         }
-        for (TypeParameter tp : method.getOriginalMethod().getMethod().getTypeParameters()) {
-            forgetMethod.addTypeVariable(TypeVariableName.get(tp.getName().asString()));
+        for (ResolvedTypeParameterDeclaration tp : method.getOriginalMethod().getTypeParameters()) {
+            forgetMethod.addTypeVariable(TypeVariableName.get(tp.getName()));
         }
         CodeBlock.Builder forgetCode = CodeBlock.builder();
         method.addGeneratedBy(forgetCode);

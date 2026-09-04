@@ -229,16 +229,16 @@ public class VertxGenCollection {
                     if (astDeclaration == null) {
                         astDeclaration = lookForMethodDeclaration(typeDeclaringMethod, method);
                         if (astDeclaration == null) {
-                            logger.debug("Cannot resolve the AST declaration of method `{}` of type {} declared in {}",
-                                    method.getName(),
-                                    resolvedDeclaration.toDescriptor(),
-                                    typeDeclaringMethod.getQualifiedName());
-                            continue;
+                            // Source not available (cross-module dependency): fall through with null AST.
+                            // VertxGenMethod supports null AST — javadoc and annotation checks are skipped.
+                            logger.debug(
+                                    "AST unavailable for method `{}` declared in `{}` — generating without source",
+                                    method.getName(), typeDeclaringMethod.getQualifiedName());
                         }
                     }
 
-                    // Ignore the method if it is annotated with @GenIgnore
-                    if (AnnotationHelper.isIgnored(astDeclaration)) {
+                    // Ignore the method if it is annotated with @GenIgnore (AST required; skip when absent)
+                    if (astDeclaration != null && AnnotationHelper.isIgnored(astDeclaration)) {
                         logger.debug("Ignoring method `{}` in interface `{}` as it is annotated with @GenIgnore",
                                 method.getName(), fqn);
                         continue;
